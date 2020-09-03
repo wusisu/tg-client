@@ -1,0 +1,8 @@
+config.py
+.vscode
+__pycache__
+libtdjson.so
+libtdjson.dylib
+tdjson.dll
+*.pyc
+tdlib/
