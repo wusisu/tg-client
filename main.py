@@ -11,6 +11,8 @@ import json
 import sys
 import registry
 import config
+import threading
+import worker
 
 # load shared library
 tdjson_path = find_library('tdjson') or 'tdjson.dll'
@@ -68,33 +70,6 @@ td_set_log_fatal_error_callback(c_on_fatal_error_callback)
 print(td_execute({'@type': 'setLogVerbosityLevel',
                   'new_verbosity_level': 1, '@extra': 1.01234}))
 
-# create client
-client = td_json_client_create()
-
-# simple wrappers for client usage
-
-
-def td_send(query):
-    query = json.dumps(query).encode('utf-8')
-    td_json_client_send(client, query)
-
-
-def td_receive():
-    result = td_json_client_receive(client, 1.0)
-    if result:
-        result = json.loads(result.decode('utf-8'))
-    return result
-
-
-if config.proxy and config.proxy['enable']:
-    td_send({'@type': 'addProxy',
-             'server': config.proxy['server'],
-             'port': config.proxy['port'],
-             'enable': True,
-             'type': {'@type': 'proxyTypeSocks5'},
-             '@extra': 'addProxy'})
-
-
 # # another test for TDLib execute method
 # print(td_execute({'@type': 'getTextEntities', 'text': '@telegram /test_command https://telegram.org telegram.me', '@extra': ['5', 7.0]}))
 
@@ -102,27 +77,65 @@ if config.proxy and config.proxy['enable']:
 # td_send({'@type': 'getAuthorizationState', '@extra': 1.01234})
 
 class app:
-    def __init__(self, td_send):
-        self.td_send = td_send
+    def __init__(self):
+        # create client
+        self.client = td_json_client_create()
 
+        # simple wrappers for client usage
 
-handlers = registry.register_all(app(td_send))
+    def td_send(self, query):
+            query = json.dumps(query).encode('utf-8')
+            td_json_client_send(self.client, query)
+
+    def td_receive(self):
+        result = td_json_client_receive(self.client, 1.0)
+        if result:
+            result = json.loads(result.decode('utf-8'))
+        return result
+
+    def proxy(self):
+        if config.proxy and config.proxy['enable']:
+            self.td_send({'@type': 'addProxy',
+                    'server': config.proxy['server'],
+                    'port': config.proxy['port'],
+                    'enable': True,
+                    'type': {'@type': 'proxyTypeSocks5'},
+                    '@extra': 'addProxy'})
+
+def runLoop(the_handlers):
+    try:
+        # main events cycle
+        while the_handlers._is_alive:
+            event = the_handlers.app.td_receive()
+            if event:
+                the_handlers.handleEvent(event)
+                # # handle an incoming update or an answer to a previously sent request
+                # print(event)
+                # sys.stdout.flush()
+    except BaseException as e:
+        if isinstance(e, KeyboardInterrupt):
+            pass
+        else:
+            raise e
+    finally:
+        print('closing td client')
+        # destroy client when it is closed and isn't needed anymore
+        td_json_client_destroy(the_handlers.app.client)
+
+myapp = app()
+myapp.proxy()
+handlers = registry.register_all(myapp)
+
+t = threading.Thread(target=runLoop, args=[handlers])
+t.start()
+
+w = worker.Worker(myapp)
+w.run()
 
 try:
-    # main events cycle
-    while True:
-        event = td_receive()
-        if event:
-            handlers.handleEvent(event)
-            # # handle an incoming update or an answer to a previously sent request
-            # print(event)
-            # sys.stdout.flush()
+    t.join()
 except BaseException as e:
-    if isinstance(e, KeyboardInterrupt):
-        pass
-    else:
-        raise e
+    print(type(e))
 finally:
-    print('closing td client')
-    # destroy client when it is closed and isn't needed anymore
-    td_json_client_destroy(client)
+    handlers.terminate()
+t.join()
