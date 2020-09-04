@@ -1,6 +1,8 @@
-import auth
-import normal
 import sys
+import normal
+import auth
+import messages
+
 
 
 class registry:
@@ -28,6 +30,7 @@ class registry:
         if hasattr(handler, 'targets') and handler.targets and isinstance(handler.targets, list):
             for t in handler.targets:
                 self._add_handler(t, handler_instance)
+        return handler_instance
 
     def _add_handler(self, name, handler_instance):
         if name not in self._registry:
@@ -54,4 +57,5 @@ def register_all(app):
     r.add_handler_class(auth.handler)
     r.add_handler_class(normal.forget_handler)
     r.add_handler_class(normal.print_handler)
+    # r.add_handler_class(messages.messages_handler)
     return r

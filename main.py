@@ -80,7 +80,7 @@ class app:
     def __init__(self):
         # create client
         self.client = td_json_client_create()
-
+        self.authenticated = False
         # simple wrappers for client usage
 
     def td_send(self, query):
@@ -129,7 +129,7 @@ handlers = registry.register_all(myapp)
 t = threading.Thread(target=runLoop, args=[handlers])
 t.start()
 
-w = worker.Worker(myapp)
+w = worker.Worker(myapp, handlers)
 w.run()
 
 try:

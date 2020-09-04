@@ -33,6 +33,7 @@ class print_handler:
         'updateChatLastMessage',
         'updateChatPosition',
         'updateSupergroup',
+        'chat',
     ]
     def __init__(self, app):
         self.app = app

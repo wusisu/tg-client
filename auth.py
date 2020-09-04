@@ -14,6 +14,10 @@ class handler:
         if auth_state['@type'] == 'authorizationStateClosed':
             return
 
+        if auth_state['@type'] == 'authorizationStateReady':
+            self.app.authenticated = True
+            return
+
         # set TDLib parameters
         # you MUST obtain your own api_id and api_hash at https://my.telegram.org
         # and use them in the setTdlibParameters call
